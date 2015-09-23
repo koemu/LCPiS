@@ -14,6 +14,8 @@ footer: Yuichiro Saito
 
 ## 留意事項
 
+Code/Slide: [github.com/koemu/LCPiS](https://github.com/koemu/LCPiS)
+
 ```
 $ brew info sbt
 sbt: stable 0.13.9 (bottled)
@@ -167,3 +169,23 @@ ForkJoinPool-1-worker-3: Task 16 completed.
 ---
 
 ### Atomic variables
+
+- **Atomic変数** とは、Complex Linearizable Operationを可能になした記憶域である。
+- **Linearizable Operation** とは、システム内においてあらゆる同時操作ができるものである。
+    - 例: Volatileな書き込み。
+- **Complex Linearizable Operation** とは、少なくとも同時2並列の読み書きが発生するLinearizable Operationと同義。
+    - ここでの原始性は、Complex Linearizable Operationを指す。
+- 各種のAtomic変数は`java.util.concurrent.atomic`パッケージに定義され、Complex Linearizable OperationはBoolean, integer, long, refrence型でサポートされている。
+- 2章で出て来た`getUniqueId`を、`AtomicLong`を使って再実装してみる。
+    - コード参照。 (p69)
+
+---
+
+- Atomic変数は、`getAndSet`メソッドとして、別の実装方法もある。数値型だと`decrementAndSet`もいる。
+- `compareAndSet`は、基本的なAtomic変数の実装である。CASと呼ばれることもある。
+     - 教科書 pp.70のコード参照。
+     - ロックフリーである。
+- CASで書き直したコードを見てみる。
+    - コード参照。 (p70)
+    - 教科書 pp.71のフロー図参照。
+    - Tail recursion をしてスタック溢れを防止している点に注目。
