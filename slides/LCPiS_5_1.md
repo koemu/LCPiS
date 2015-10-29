@@ -24,9 +24,9 @@ $ scala -version
 Scala code runner version 2.11.7 -- Copyright 2002-2013, LAMP/EPFL
 
 $ java -version
-java version "1.7.0_04"
-Java(TM) SE Runtime Environment (build 1.7.0_04-b21)
-Java HotSpot(TM) 64-Bit Server VM (build 23.0-b21, mixed mode)
+java version "1.8.0_66"
+Java(TM) SE Runtime Environment (build 1.8.0_66-b17)
+Java HotSpot(TM) 64-Bit Server VM (build 25.66-b17, mixed mode)
 
 $ sysctl -n machdep.cpu.brand_string  
 Intel(R) Core(TM) i7-4578U CPU @ 3.00GHz
@@ -107,9 +107,18 @@ Intel(R) Core(TM) i7-4578U CPU @ 3.00GHz
     - そんでもってシャッフル
     - 2つの方法で最大値を探す
     - 実行結果例は次のページに
+
 ---
 
+- 準備していて困ったことが発生
+    - 教科書では並行の方が速いのだが、私の手元だと直列の方が速い。
+
 ```
+$ java -version
+java version "1.7.0_04"
+Java(TM) SE Runtime Environment (build 1.7.0_04-b21)
+Java HotSpot(TM) 64-Bit Server VM (build 23.0-b21, mixed mode)
+
 $ sbt run
 [info] Set current project to p139_1 (in build file:/Users/saito/repos/LCPiS/src/p139_1/)
 [info] Running ParBasic
@@ -120,10 +129,32 @@ run-main-0: Parallel time 681.545 ms
 [success] Total time: 5 s, completed 2015/10/29 19:57:21
 ```
 
-- 実習していて困ったことが発生
-    - 教科書では並行の方が速いのだが、私の手元だと直列の方が速い。
+---
+
+- ということでJava 8に変えました。
+    - JVMの作りによって動きが違う最たる例ですね。
+    - (この後は特記が無い限りJava 8)
+
+```
+$ java -version
+java version "1.8.0_66"
+Java(TM) SE Runtime Environment (build 1.8.0_66-b17)
+Java HotSpot(TM) 64-Bit Server VM (build 25.66-b17, mixed mode)
+
+$ sbt run
+[info] Set current project to p139_1 (in build file:/Users/saito/repos/LCPiS/src/p139_1/)
+[info] Compiling 2 Scala sources to /Users/saito/repos/LCPiS/src/p139_1/target/scala-2.10/classes...
+[info] Running ParBasic
+largest number 4999999
+run-main-0: Sequential time 294.003 ms
+largest number 4999999
+run-main-0: Parallel time 251.869 ms
+```
 
 ---
+
+- 参考: 別の環境での実行結果
+    - わずかに並行の方が速い。っていうかなぜCore i5の方が速い…？
 
 ```
 $ brew info sbt
@@ -146,3 +177,137 @@ largest number 4999999
 run-main-0: Parallel time 114.129 ms
 [success] Total time: 5 s, completed 2015/10/29 20:29:08
 ```
+
+---
+
+- `max`メソッドは並行処理にもってこい。
+- **trivially parallelizable**: 今回の`max`メソッドの動きで例えると…
+    - 各ワーカーが最大値を探す
+    - 最後に全てのワーカーの最大値の最大値を探して答えを出す
+
+---
+
+- 一般的に、データの並行操作は、`max`メソッドに比べプロセッサ間の通信をより求められる。
+- `incrementAndGet`メソッドについて改めて考えてみる。(3章で出てきてます)
+- コード解説 (p140_1)
+    - 並行処理を行っているのは`foreach`を呼び出しているのと同じ。
+    - 並行処理している方は、それぞれのスレッドの動きを待っているので結果遅くなる。
+
+---
+
+```
+$ sbt run
+[info] Set current project to p140_1 (in build file:/Users/saito/repos/LCPiS/src/p140_1/)
+[info] Running ParUid
+run-main-0: Sequential time 201.927 ms
+run-main-0: Parallel time 397.328 ms
+[success] Total time: 1 s, completed 2015/10/29 23:20:08
+```
+
+---
+
+- マルチコアでさばけるからと言って万事速いという訳ではない。
+    - 今の例の通り。
+- 現代のCPUは、RAMに直接アクセスしている訳ではなく、L1, L2等のキャッシュに情報を貯めている。
+    - コアが分かれて処理されると、RAMを通さずともキャッシュもその処理が所属するコアに分かれてコピーされ、同期が取られる。これをMESI(別名Illinois protocol)という。
+- 処理の流れはP.142の図を基に解説
+
+---
+
+- 並行処理プログラムは、他のリソースも共有するため、計算機性能をより求められる。
+    - **resource contention**: 資源の競合
+    - **memory contention**: メモリの使用量の競合
+- パフォーマンスを劣化させる要因は他にもある
+    - 同じオブジェクトに対する同期処理
+    - 並列処理可能なマップに対する同一キーへの変更
+    - コンカレントキューへ同時にキューイング
+- これらは全て同じメモリ領域にアクセスする
+- いくつかのアプリでは非定期的に並列に書き込みを行う
+
+---
+
+#### Parallel collection class hierarchy
+
+- これまで並列実行した別のワーカーが同時実行していることを学んだ。
+- uidの保存の競合については第2章で既に学んでいる。
+- この成り行きとして、並行コレクションは直列コレクションのサブタイプではないことがわかる。
+    - これはリスコフの置換原則に違反する。
+- リスコフの置換原則: SがTのサブタイプだった場合、TはSにプログラムの正当性の評価無しに置換できる。
+
+---
+
+- もし、並行コレクションが直列コレクションのサブタイプだったとすると、それぞれのメソッドは直列のコレクションを返す。
+- クライアントは`foreach`が存在すると知らずに同期可能なメソッドを呼び出せるようにした場合場合、正確に動かない。
+- P.143のダイアグラムに、ヒエラルキーを示した。
+
+
+- (あー、この後良くわからん。)
+
+---
+
+#### Configuring the parallelism level
+
+- 並行コレクションは、デフォルトでは全てのプロセッサを使う。その下には、たくさんのワーカーが動いている。
+- `TaskSupport`オブジェクトを編集してデフォルトの動きを変えてみる。
+- `ForkJoinTaskSupport`は`TaskSupport`の典型的な実装である。
+-  コード参照 (p145_1)
+    - 2スレッドに制限されています
+    - 2から変更すると実行速度が変わりますので時間があれば試します
+
+---
+
+#### Measuring the performance on the JVM
+
+- JVM上のプログラムの実行時間の計算は簡単じゃない。
+    - 表面上、わからないことがある。
+- Scalaは実行可能形式のバイナリはコンパイルできない。Javaのバイトコードを出力する。
+- **interprited mode**: Javaのバイトコードなら、逐次実行可能。
+- JIT: バイトコードから、マシン語にコンパイル。
+- 何でバイトコード: 様々なプラットフォームで動くようにしたいから。でも遅い。
+- **steady state**: 起動してしばらくすると最高のパフォーマンスに達する、その時の状態。
+
+---
+
+- 影響を参考にするために、<TEXTAREA>タグを探すHTMLパーサーを書いてみる。
+- コード参照 (p146_1)
+    - 私のコードは最後に`Thread.sleep(10000)`がありますが、これは入れないと速く終わりすぎてしまうので入れました。
+    - めっちゃエラッタ投げたい気分。30分消費した。
+
+---
+
+- 5回実行目
+    - なんでSequentialの方が速いんだ泣きたい
+
+```
+$ sbt run
+[info] Set current project to p146_1 (in build file:/Users/saito/repos/LCPiS/src/p146_1/)
+[info] Compiling 1 Scala source to /Users/saito/repos/LCPiS/src/p146_1/target/scala-2.10/classes...
+[info] Running ParHtmlSpecSearch
+ForkJoinPool-1-worker-5: Sequential time 13.739 ms
+ForkJoinPool-1-worker-5: Parallel time 24.503 ms
+[success] Total time: 14 s, completed 2015/10/30 0:10:43
+```
+
+---
+
+- `warmedTimed()`を入れると、steady stateになってから実行できるので結果が安定する。
+- コード参照　(p146_2)
+    - ここだと並行の方が速い
+    - JVMの起動オーバーヘッドが結構効いてた？
+
+```
+$ sbt run
+[info] Set current project to p146_2 (in build file:/Users/saito/repos/LCPiS/src/p146_2/)
+[info] Running ParHtmlSpecSearch
+ForkJoinPool-1-worker-5: Sequential time 1.665 ms
+ForkJoinPool-1-worker-5: Parallel time 1.503 ms
+[success] Total time: 11 s, completed 2015/10/30 0:16:18
+```
+
+---
+
+- まあ、ここまで来るとわかりますが、JVMのパフォーマンスを測定するのはなかなか大変。
+- **JIT**コンパイラがどこかで実行を止めてコードを最適化するにあたって、逆に遅くしている。
+- **GC**があることで、`delete`ステートメントは無い。使わなくなったオブジェクトを自動的に回収して破棄してくれる。
+- GCが動くときに、また計測結果がぶれる。
+- 9章でより精度の高い分析方法をやりますけど、それまでには長い道のりがある…
