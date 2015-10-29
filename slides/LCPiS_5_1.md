@@ -124,3 +124,25 @@ run-main-0: Parallel time 681.545 ms
     - 教科書では並行の方が速いのだが、私の手元だと直列の方が速い。
 
 ---
+
+```
+$ brew info sbt
+sbt: stable 0.13.9 (bottled)
+$ scala -version
+Scala code runner version 2.11.7 -- Copyright 2002-2013, LAMP/EPFL
+$ java -version
+java version "1.7.0_60"
+Java(TM) SE Runtime Environment (build 1.7.0_60-b19)
+Java HotSpot(TM) 64-Bit Server VM (build 24.60-b09, mixed mode)
+$ sysctl -n machdep.cpu.brand_string
+Intel(R) Core(TM) i5-4250U CPU @ 1.30GHz
+
+$ sbt run
+[info] Set current project to p139_1 (in build file:/Users/koemu/repos/LCPiS/src/p139_1/)
+[info] Running ParBasic
+largest number 4999999
+run-main-0: Sequential time 128.808 ms
+largest number 4999999
+run-main-0: Parallel time 114.129 ms
+[success] Total time: 5 s, completed 2015/10/29 20:29:08
+```
