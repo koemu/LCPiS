@@ -4,7 +4,7 @@ footer: Yuichiro Saito
 
 # Learning Concurrent Programming in Scala
 
-## 第5章 前半
+## 第5章 前半・中盤
 
 ### 久野研究室 2015年 輪読会
 
@@ -314,4 +314,71 @@ ForkJoinPool-1-worker-5: Parallel time 1.503 ms
 
 ---
 
-## [FIT]おわり
+### Canvas of parallel collections
+
+- 並列コレクションは直列コレクションと類似したAPIとなっている。
+- ここでは零列コレクションを使うにあたっての注意点について学ぶ。
+
+---
+
+#### Non-parallelizable collections
+
+- 並列コレクションはスプリッタを利用している。
+- スプリッタはIteratorの拡張版である。
+- 並列となっているプロセスごとに処理が動く。
+- 処理時間はO(logN)に近づく。Nは並列数。
+- Hash, array, treeライクなデータ(Vectorとか)で使える。
+- List, streamとかでは使えない。
+
+---
+
+- 並列にできるもの: **Parallelizable**
+    - Array, ArrayBuffer
+    - Mutable: HashMap, HashSet, Range, Vector
+    - Immutable: HashMap, HashSet, TrieMap
+- .par で並列化できる
+- 元のオブジェクトを参照するためデータはコピーされない。
+
+---
+
+- これ以外のScalaのコレクションは、並列化できるものに変換しないと行けない。これを**Non-parallelizable collections**という。
+- パフォーマンス差を見てみる
+    - コード参照 (p149_1)
+    - 実際、圧倒的差が出ます。
+
+---
+
+- 時々、変換コストが許容できることがある。
+- (この辺りの訳がよくわからない)
+
+---
+
+#### Non-parallelizable operations
+
+- 並列コレクションの操作はマルチプロセッサ環境でより良いパフォーマンスを得ることができる。
+- いくつかの操作は直列のまま切り離せない。
+- `foldLeft`メソッドについて考えてみる。
+
+---
+
+- コード参照 (p150_1)
+    - 大体同じ処理時間になる
+    - 並列処理できない
+- `aggregate` を使うと
+    - 左から右に横断して処理しない
+    - 複数で累算した結果をマージした結果を出せる
+    - コード参照 (p151_1)
+    - 並列が速くなる！
+
+---
+
+#### Side effects in parallel operations
+
+- 2章で、並列コレクションはマルチスレッドで複数処理されることを知った。
+- 同期を使わずとも共有メモリ領域を操作できる。
+- コード参照 (p151_2)
+    - 何回か実行すると、並列処理側の結果が壊れる。
+- コード参照 (p152_1)
+    - p151_2 のコードを直してみる
+    - `AtomicInteger`の登場 (3章でやりましたね！)
+    - これで壊れなくなる
