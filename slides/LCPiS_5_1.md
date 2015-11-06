@@ -434,3 +434,29 @@ ForkJoinPool-1-worker-5: Parallel time 1.503 ms
 - **zero element**
     - `cop(z, a) == a`
     - `cop(sop(z, a), sop(z, b)) == cop(z, sop(sop(z, a), b))`
+
+---
+
+### Using parallel and concurrent collections together
+
+- 同期無しにミュータブルな状態の並列処理はできないことをここまでで学んだ
+    - 並列操作に置ける直列コレクションの編集にも言える
+- コード参照 (p156_1)
+    - どっちにも入っている単語を表示する
+    - ただ結果は同じにならない
+    - HashSetはスレッドセーフではない
+
+---
+
+-　コード参照 (p157_1)
+    - 第3章でやりましたけど、並列処理でも安全にデータを操作できる方法がある。
+    - `ConcurrentSkipListSet`を使って担保する。
+
+---
+
+#### Weakly consistent iterators
+
+- 3章で学んだように、多くの並行処理のイテレータは緩い一貫性がある。
+    - これは、データの更新を行ったときはその構造は保証されない。
+- コード参照 (p157_2)
+    - TrieMapはこのルールの例外である
